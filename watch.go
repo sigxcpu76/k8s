@@ -197,3 +197,41 @@ func (c *Client) Watch(ctx context.Context, namespace string, r Resource, option
 		c: resp.Body,
 	}}, nil
 }
+
+func (c *Client) WatchSingle(ctx context.Context, namespace string, name string, r Resource, options ...Option) (*Watcher, error) {
+	url, err := resourceSingleWatchURL(c.Endpoint, namespace, name, r, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	ct := contentTypeFor(r)
+
+	req, err := c.newRequest(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", ct)
+
+	resp, err := c.client().Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode/100 != 2 {
+		body, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		return nil, newAPIError(resp.Header.Get("Content-Type"), resp.StatusCode, body)
+	}
+
+	if ct == contentTypePB {
+		return &Watcher{&watcherPB{r: resp.Body}}, nil
+	}
+
+	return &Watcher{&watcherJSON{
+		d: json.NewDecoder(resp.Body),
+		c: resp.Body,
+	}}, nil
+}

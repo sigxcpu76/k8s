@@ -166,3 +166,22 @@ func resourceWatchURL(endpoint, namespace string, r Resource, options ...Option)
 	}
 	return url, nil
 }
+
+func resourceSingleWatchURL(endpoint, namespace string, resourceName string, r Resource, options ...Option) (string, error) {
+	t, ok := resources[reflect.TypeOf(r)]
+	if !ok {
+		return "", fmt.Errorf("unregistered type %T", r)
+	}
+
+	if !t.namespaced && namespace != "" {
+		return "", fmt.Errorf("type not namespaced")
+	}
+
+	url := urlFor(endpoint, t.apiGroup, t.apiVersion, namespace, t.name, resourceName, options...)
+	if strings.Contains(url, "?") {
+		url = url + "&watch=true"
+	} else {
+		url = url + "?watch=true"
+	}
+	return url, nil
+}
